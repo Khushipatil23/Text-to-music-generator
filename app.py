@@ -1,84 +1,103 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
-from pydantic import BaseModel
+from fastapi.responses import FileResponse, JSONResponse
+from pydantic import BaseModel, Field
 import torch
 import torchaudio
 import numpy as np
 import os
 import time
+import logging
 import scipy
 from transformers import pipeline
 from audiocraft.models import MusicGen
 
-app = FastAPI()
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-# Enable CORS
+app = FastAPI(title="Text-to-Music Generator API")
+
+# Enable CORS (for dev, allow all; for prod, restrict origins)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Set your frontend domain in production
+    allow_origins=["*"],  # Change this in production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Load Sentiment Model (for prompt enrichment)
-nlp = pipeline("sentiment-analysis")
+# Load sentiment pipeline (prompt enrichment)
+try:
+    logger.info("Loading sentiment analysis pipeline...")
+    nlp = pipeline("sentiment-analysis")
+    logger.info("Sentiment model loaded.")
+except Exception as e:
+    logger.error(f"Failed to load sentiment model: {e}")
+    raise RuntimeError("Sentiment model failed to load.")
 
 # Load MusicGen model
 try:
-    print("Loading MusicGen model...")
+    logger.info("Loading MusicGen model...")
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model = MusicGen.get_pretrained("facebook/musicgen-small")
-    print("Model loaded successfully!")
+    logger.info("MusicGen model loaded successfully!")
 except Exception as e:
-    raise RuntimeError(f"Failed to load MusicGen model: {e}")
+    logger.error(f"Failed to load MusicGen model: {e}")
+    raise RuntimeError("MusicGen model failed to load.")
 
-# Request model
+# Request model with validation
 class MusicRequest(BaseModel):
-    prompt: str
-    duration: int = 10  # Default to 10 seconds
+    prompt: str = Field(..., min_length=3, description="Text prompt for music generation")
+    duration: int = Field(default=10, ge=1, le=30, description="Duration of generated music (in seconds)")
 
+# Root route
 @app.get("/")
-def home():
-    return {"message": "🎶 Welcome to the Enhanced MusicGen Text-to-Music API!"}
+async def root():
+    return {"message": "🎵 Welcome to the Text-to-Music Generator API"}
 
+# Generate music
 @app.post("/generate_music")
-def generate_music(request: MusicRequest):
+async def generate_music(request: MusicRequest):
     try:
-        print(f"Original prompt: {request.prompt}")
+        logger.info(f"Received prompt: {request.prompt} | Duration: {request.duration}")
 
-        # Analyze mood from prompt
+        # Enrich prompt with sentiment
         sentiment = nlp(request.prompt)[0]
         mood = sentiment["label"].lower()
         enhanced_prompt = f"{mood} {request.prompt}"
-        print(f"Enhanced prompt: {enhanced_prompt}")
+        logger.info(f"Enhanced prompt: {enhanced_prompt}")
 
-        # Generate music
+        # Generate music using MusicGen
         model.set_generation_params(duration=request.duration)
         wav = model.generate([enhanced_prompt])[0].cpu().numpy()
 
-        # Save audio
+        # Save audio file
         output_path = "generated_music.wav"
         scipy.io.wavfile.write(output_path, rate=32000, data=wav.T)
+        logger.info("Music generated and saved.")
 
-        time.sleep(1)
-        if os.path.exists(output_path):
-            return {
-                "prompt": request.prompt,
-                "mood": mood,
-                "duration": request.duration,
-                "audio_url": "http://127.0.0.1:8000/download-music"
-            }
-        else:
-            raise HTTPException(status_code=500, detail="Music file not saved")
+        return {
+            "prompt": request.prompt,
+            "mood": mood,
+            "duration": request.duration,
+            "audio_url": "/download-music"
+        }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error: {e}")
+        logger.error(f"Error during music generation: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error during music generation.")
 
+# Download route
 @app.get("/download-music")
-def download_music():
-    if os.path.exists("generated_music.wav"):
-        return FileResponse("generated_music.wav", media_type="audio/wav", filename="generated_music.wav")
+async def download_music():
+    output_path = "generated_music.wav"
+    if os.path.exists(output_path):
+        return FileResponse(
+            output_path,
+            media_type="audio/wav",
+            filename="generated_music.wav"
+        )
     else:
-        raise HTTPException(status_code=404, detail="File not found")
+        logger.warning("Requested download but file was not found.")
+        raise HTTPException(status_code=404, detail="Music file not found.")
