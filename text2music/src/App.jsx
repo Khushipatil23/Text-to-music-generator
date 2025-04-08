@@ -4,6 +4,7 @@ import "./index.css";
 
 function App() {
   const [prompt, setPrompt] = useState("");
+  const [duration, setDuration] = useState(10); // seconds
   const [audioSrc, setAudioSrc] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -13,12 +14,11 @@ function App() {
   const [savedTracks, setSavedTracks] = useState([]);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  // Animate visualizer
   useEffect(() => {
     if (!showPlayer) return;
-    
+
     const interval = setInterval(() => {
-      setVisualizerData(prev => 
+      setVisualizerData(prev =>
         prev.map(() => Math.max(10, Math.random() * 80 + 10))
       );
     }, 150);
@@ -28,7 +28,7 @@ function App() {
 
   const handleGenerate = async () => {
     if (!prompt.trim()) {
-      setError("Please describe your music");
+      setError("Please describe your music.");
       return;
     }
 
@@ -36,29 +36,33 @@ function App() {
     setError(null);
 
     try {
-      const response = await axios.post("/api/generate-music", { prompt });
+      // 1. Send prompt & duration to backend
+      const response = await axios.post("http://127.0.0.1:8000/generate_music", {
+        prompt,
+        duration
+      });
 
-      
-      if (response.data.audio_url) {
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        const musicResponse = await axios.get(response.data.audio_url, { 
-          responseType: "blob" 
-        });
-        const url = URL.createObjectURL(new Blob([musicResponse.data]));
-        setAudioSrc(url);
-        setShowPlayer(true);
-        
-        // Add to saved tracks
-        const newTrack = {
-          id: Date.now(),
-          prompt,
-          audioUrl: url,
-          date: new Date().toLocaleString()
-        };
-        setSavedTracks(prev => [newTrack, ...prev]);
-      }
+      console.log("Backend response:", response.data);
+
+      // 2. Download the generated audio
+      const musicResponse = await axios.get("http://127.0.0.1:8000/api/download-music", {
+        responseType: "blob"
+      });
+
+      const url = URL.createObjectURL(new Blob([musicResponse.data]));
+      setAudioSrc(url);
+      setShowPlayer(true);
+
+      const newTrack = {
+        id: Date.now(),
+        prompt,
+        audioUrl: url,
+        date: new Date().toLocaleString()
+      };
+      setSavedTracks(prev => [newTrack, ...prev]);
+
     } catch (err) {
-      setError("Generation failed. Please try again.");
+      setError("Something went wrong while generating the music.");
       console.error(err);
     } finally {
       setLoading(false);
@@ -86,19 +90,19 @@ function App() {
   return (
     <div className="music-app">
       <div className="three-d-background"></div>
-      
+
       <div className="app-container">
         <button className="sidebar-toggle" onClick={toggleSidebar}>
           {sidebarOpen ? '◄' : '►'}
         </button>
-        
+
         <div className={`sidebar ${sidebarOpen ? 'open' : 'closed'}`}>
           <h3>Your Tracks</h3>
           <div className="saved-tracks">
             {savedTracks.length > 0 ? (
               savedTracks.map(track => (
-                <div 
-                  key={track.id} 
+                <div
+                  key={track.id}
                   className="track-item"
                   onClick={() => playSavedTrack(track)}
                 >
@@ -127,7 +131,7 @@ function App() {
                 onChange={(e) => setPrompt(e.target.value)}
                 rows="3"
               />
-              <button 
+              <button
                 onClick={handleGenerate}
                 disabled={loading}
                 className={loading ? 'loading' : ''}
@@ -142,10 +146,10 @@ function App() {
                 <div className="modal-content">
                   <button className="close-btn" onClick={closePlayer}>×</button>
                   <h3>Your AI Composition</h3>
-                  
+
                   <div className="track-visualizer">
                     {visualizerData.map((height, i) => (
-                      <div 
+                      <div
                         key={i}
                         className="visualizer-bar"
                         style={{ height: `${height}%` }}
@@ -156,8 +160,8 @@ function App() {
                   <div className="track-info">
                     <p className="prompt-preview">"{prompt}"</p>
                     <audio ref={audioRef} src={audioSrc} controls />
-                    <a 
-                      href={audioSrc} 
+                    <a
+                      href={audioSrc}
                       download="ai_music_composition.wav"
                       className="download-btn"
                     >
