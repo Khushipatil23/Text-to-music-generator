@@ -55,7 +55,7 @@ async def root():
     return {"message": "🎵 Welcome to the Text-to-Music Generator API"}
 
 # 🔁 Updated route here
-@app.post("/api/generate-music")
+@app.post("/generate_music")
 async def generate_music(request: MusicRequest):
     try:
         logger.info(f"Received prompt: {request.prompt} | Duration: {request.duration}")
