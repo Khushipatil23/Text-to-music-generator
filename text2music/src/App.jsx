@@ -36,7 +36,8 @@ function App() {
     setError(null);
 
     try {
-      const response = await axios.post("http://127.0.0.1:8000/generate_music", { prompt });
+      const response = await axios.post("/api/generate-music", { prompt });
+
       
       if (response.data.audio_url) {
         await new Promise(resolve => setTimeout(resolve, 2000));
