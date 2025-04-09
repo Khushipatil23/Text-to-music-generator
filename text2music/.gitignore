@@ -21,3 +21,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+*.wav
+__pycache__/
+.cache/
+*.pt
+*.pth
+
