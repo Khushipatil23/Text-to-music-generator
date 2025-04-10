@@ -5,7 +5,7 @@ python-multipart==0.0.20
 torch==2.1.0
 torchaudio==2.1.0
 transformers==4.50.3
-tokenizers==0.13.3
+tokenizers==0.21.0
 audiocraft @ git+https://github.com/facebookresearch/audiocraft.git@896ec7c47f5e5d1e5aa1e4b260c4405328bf009d
 
 soundfile==0.11.0
