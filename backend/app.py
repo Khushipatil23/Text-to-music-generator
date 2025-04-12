@@ -99,3 +99,8 @@ async def download_music():
     else:
         logger.warning("Requested download but file was not found.")
         raise HTTPException(status_code=404, detail="Music file not found.")
+
+from fastapi.staticfiles import StaticFiles
+
+# Serve React frontend
+app.mount("/", StaticFiles(directory="text2music/dist", html=True), name="frontend")
