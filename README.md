@@ -112,3 +112,6 @@ npm start
 
 ---
 
+## 🎥 Demo Video
+
+[Click to watch the demo](https://drive.google.com/file/d/19AIl0ffbCrOGXC-37y4P267iAKJqC4A6/view?usp=drive_link)
