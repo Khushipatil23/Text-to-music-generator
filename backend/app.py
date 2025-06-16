@@ -17,10 +17,10 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Text-to-Music Generator API")
 
-# Enable CORS (for dev, allow all; for prod, restrict origins)
+# Enable CORS 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Change this in production
+    allow_origins=["*"], 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -54,7 +54,7 @@ class MusicRequest(BaseModel):
 async def root():
     return {"message": "🎵 Welcome to the Text-to-Music Generator API"}
 
-# 🔁 Updated route here
+
 @app.post("/generate_music")
 async def generate_music(request: MusicRequest):
     try:
@@ -79,14 +79,14 @@ async def generate_music(request: MusicRequest):
             "prompt": request.prompt,
             "mood": mood,
             "duration": request.duration,
-            "audio_url": "/api/download-music"  # 🔁 Updated download route
+            "audio_url": "/api/download-music"  
         }
 
     except Exception as e:
         logger.error(f"Error during music generation: {e}")
         raise HTTPException(status_code=500, detail="Internal server error during music generation.")
 
-# 🔁 Updated download route
+
 @app.get("/api/download-music")
 async def download_music():
     output_path = "generated_music.wav"
